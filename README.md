@@ -1,6 +1,14 @@
-# Lumpia
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" width="128" alt="Lumpia icon" />
+</p>
 
-A fast, lightweight PDF reader & editor for Windows and macOS, built with [Tauri](https://tauri.app) + React + [pdf.js](https://mozilla.github.io/pdf.js/) + [pdf-lib](https://pdf-lib.js.org/). Named after the Filipino dish.
+<h1 align="center">Lumpia</h1>
+
+<p align="center">A perfectly ordinary PDF editor. 🥟</p>
+
+Lumpia is a plain, no-frills PDF reader & editor for Windows and macOS — open PDFs, annotate them, organize pages, create new ones, save. That's it. Built with [Tauri](https://tauri.app) + React + [pdf.js](https://mozilla.github.io/pdf.js/) + [pdf-lib](https://pdf-lib.js.org/), and named after the Filipino spring roll.
+
+> **Heads-up:** installers are not yet code-signed — SmartScreen (Windows) and Gatekeeper (macOS) handling hasn't been set up, so you'll see a security warning on first install. On Windows click **"More info" → "Run anyway"**; on macOS allow the app under **System Settings → Privacy & Security**.
 
 ## Features
 
