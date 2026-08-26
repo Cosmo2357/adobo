@@ -1,6 +1,6 @@
 [package]
 name = "adobo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Adobo — a fast PDF reader"
 authors = ["yuhki"]
 edition = "2021"
