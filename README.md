@@ -73,9 +73,10 @@ Required repository secrets:
 - 注釈（ハイライト・手書き・テキスト追加）は保存時にページへ焼き込まれます。
 - 新しいバージョンが公開されると起動時に自動でアップデート通知が出ます。
 
-## Fonts
+## Fonts & third-party licenses
 
-Bundled font: [Noto Sans JP](https://github.com/notofonts/noto-cjk) © Google, licensed under the SIL Open Font License 1.1.
+Bundled font: [Noto Sans JP](https://github.com/notofonts/noto-cjk) © Google, licensed under the SIL Open Font License 1.1 (full text in [public/fonts/OFL.txt](public/fonts/OFL.txt)).
+All third-party components and their licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ## Roadmap
 
