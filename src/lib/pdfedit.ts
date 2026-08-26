@@ -113,3 +113,56 @@ export async function insertDocument(
   pages.forEach((p, i) => dst.insertPage(at + i, p));
   return dst.save();
 }
+
+export const PAGE_SIZES: Record<string, [number, number]> = {
+  a4: [595.28, 841.89],
+  letter: [612, 792],
+};
+
+/** Creates a new document with the given number of blank pages. */
+export async function createBlankPdf(
+  pages = 1,
+  size: [number, number] = PAGE_SIZES.a4,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  for (let i = 0; i < pages; i++) doc.addPage([size[0], size[1]]);
+  return doc.save();
+}
+
+/**
+ * Inserts one blank page at `at`, sized to match its neighbour so mixed-size
+ * documents keep their local page format.
+ */
+export async function insertBlankPage(bytes: Uint8Array, at: number): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes);
+  const pages = doc.getPages();
+  const ref = pages[Math.min(Math.max(at - 1, 0), pages.length - 1)];
+  const size: [number, number] = ref
+    ? [ref.getWidth(), ref.getHeight()]
+    : PAGE_SIZES.a4;
+  doc.insertPage(Math.min(at, pages.length), size);
+  return doc.save();
+}
+
+/**
+ * Builds a document from images, one page per image, each page sized to its
+ * image at 72 dpi (capped to A4 width scale for huge photos kept as-is —
+ * viewers scale pages, so native size is fine).
+ */
+export async function imagesToPdf(
+  images: { bytes: Uint8Array; type: "jpg" | "png" }[],
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  for (const img of images) {
+    const embedded =
+      img.type === "jpg" ? await doc.embedJpg(img.bytes) : await doc.embedPng(img.bytes);
+    const page = doc.addPage([embedded.width, embedded.height]);
+    page.drawImage(embedded, {
+      x: 0,
+      y: 0,
+      width: embedded.width,
+      height: embedded.height,
+    });
+  }
+  return doc.save();
+}

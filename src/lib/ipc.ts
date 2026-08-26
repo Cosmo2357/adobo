@@ -30,6 +30,15 @@ export function takePendingFiles(): Promise<string[]> {
   return invoke<string[]>("take_pending_files");
 }
 
+export async function pickImages(): Promise<string[]> {
+  const picked = await open({
+    multiple: true,
+    filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png"] }],
+  });
+  if (Array.isArray(picked)) return picked;
+  return typeof picked === "string" ? [picked] : [];
+}
+
 export async function pickPdf(): Promise<string | null> {
   const picked = await open({
     multiple: false,

@@ -106,3 +106,20 @@ export const IconUpdate = (p: IconProps) => (
     <path d="M3 20v-5h5" />
   </svg>
 );
+
+export const IconNew = (p: IconProps) => (
+  <svg {...S(p.size)}>
+    <path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9Z" />
+    <path d="M13 3v6h6" />
+    <line x1="12" y1="13" x2="12" y2="17" />
+    <line x1="10" y1="15" x2="14" y2="15" />
+  </svg>
+);
+
+export const IconImage = (p: IconProps) => (
+  <svg {...S(p.size)}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="m4 17 5-5 4 4 3-3 4 4" />
+  </svg>
+);

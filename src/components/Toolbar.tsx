@@ -6,7 +6,9 @@ import {
   IconFitPage,
   IconFitWidth,
   IconFolder,
+  IconImage,
   IconMinus,
+  IconNew,
   IconPanel,
   IconPlus,
   IconPrint,
@@ -26,6 +28,8 @@ interface ToolbarProps {
   findOpen: boolean;
   printing: boolean;
   onToggleSidebar: () => void;
+  onNew: () => void;
+  onNewFromImages: () => void;
   onOpen: () => void;
   onSaveAs: () => void;
   onPrint: () => void;
@@ -76,6 +80,12 @@ export function Toolbar(p: ToolbarProps) {
         disabled={!hasDoc}
       >
         <IconPanel />
+      </button>
+      <button className="tb-btn" title="New PDF (Ctrl+N)" onClick={p.onNew}>
+        <IconNew />
+      </button>
+      <button className="tb-btn" title="New PDF from images…" onClick={p.onNewFromImages}>
+        <IconImage />
       </button>
       <button className="tb-btn" title="Open (Ctrl+O)" onClick={p.onOpen}>
         <IconFolder />

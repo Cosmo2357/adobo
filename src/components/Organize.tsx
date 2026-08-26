@@ -7,6 +7,7 @@ interface OrganizeProps {
   onApply: (order: PageEdit[]) => void;
   onExtract: (order: PageEdit[]) => void;
   onInsert: (order: PageEdit[], at: number) => void;
+  onAddBlank: (order: PageEdit[], at: number) => void;
   onCancel: () => void;
 }
 
@@ -61,7 +62,7 @@ function PageThumb({ doc, source, extraRotation }: { doc: PDFDocumentProxy; sour
   );
 }
 
-export function Organize({ doc, onApply, onExtract, onInsert, onCancel }: OrganizeProps) {
+export function Organize({ doc, onApply, onExtract, onInsert, onAddBlank, onCancel }: OrganizeProps) {
   const [items, setItems] = useState<Item[]>(() =>
     Array.from({ length: doc.numPages }, (_, i) => ({ id: i, source: i, extraRotation: 0 })),
   );
@@ -132,6 +133,17 @@ export function Organize({ doc, onApply, onExtract, onInsert, onCancel }: Organi
           }}
         >
           Insert PDF…
+        </button>
+        <button
+          className="tool-btn"
+          onClick={() => {
+            const at = hasSelection
+              ? Math.max(...selectedItems.map((s) => items.indexOf(s))) + 1
+              : items.length;
+            onAddBlank(items, at);
+          }}
+        >
+          Add blank page
         </button>
         <div className="divider" />
         <button className="tool-btn" onClick={onCancel}>Cancel</button>

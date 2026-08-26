@@ -5,7 +5,10 @@ import { TextIndex, type Match } from "./lib/search";
 import type { Annot, Tool } from "./lib/annots";
 import {
   bakeAnnotations,
+  createBlankPdf,
   extractPages,
+  imagesToPdf,
+  insertBlankPage,
   insertDocument,
   reorganize,
   type PageEdit,
@@ -16,6 +19,7 @@ import {
   isTauri,
   onFileDrop,
   onFilesPending,
+  pickImages,
   pickPdf,
   pickSavePath,
   readFileBytes,
@@ -182,6 +186,37 @@ export default function App() {
     const path = await pickPdf();
     if (path) await openPath(path);
   }, [openPath]);
+
+  const newDocument = useCallback(async () => {
+    try {
+      if (!(await confirmDiscard())) return;
+      const bytes = await createBlankPdf();
+      await mountBytes(bytes, null, "Untitled.pdf");
+      setZoom({ mode: "fit-width", scale: 1 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [confirmDiscard, mountBytes]);
+
+  const newFromImages = useCallback(async () => {
+    try {
+      const paths = await pickImages();
+      if (paths.length === 0) return;
+      if (!(await confirmDiscard())) return;
+      const images = await Promise.all(
+        paths.map(async (path) => ({
+          bytes: await readFileBytes(path),
+          type: /\.png$/i.test(path) ? ("png" as const) : ("jpg" as const),
+        })),
+      );
+      const bytes = await imagesToPdf(images);
+      await mountBytes(bytes, null, "Untitled.pdf");
+      setZoom({ mode: "fit-width", scale: 1 });
+      setBytesDirty(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [confirmDiscard, mountBytes]);
 
   // Files queued by the backend (CLI args, second instance, "Open with").
   useEffect(() => {
@@ -414,6 +449,25 @@ export default function App() {
     [bakedBytes, applyBytes],
   );
 
+  const handleAddBlank = useCallback(
+    async (order: PageEdit[], at: number) => {
+      try {
+        let base = await bakedBytes();
+        const ds = docStateRef.current!;
+        const identity =
+          order.length === ds.doc.numPages &&
+          order.every((o, i) => o.source === i && o.extraRotation % 360 === 0);
+        if (!identity) base = await reorganize(base, order);
+        const next = await insertBlankPage(base, at);
+        await applyBytes(next);
+        setOrganizing(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [bakedBytes, applyBytes],
+  );
+
   const undo = useCallback(() => {
     if (annots.length > 0) {
       setAnnots((prev) => prev.slice(0, -1));
@@ -448,6 +502,9 @@ export default function App() {
       if (mod && e.key === "o") {
         e.preventDefault();
         void openDialog();
+      } else if (mod && e.key === "n") {
+        e.preventDefault();
+        void newDocument();
       } else if (mod && e.key === "s") {
         e.preventDefault();
         if (dirtyRef.current) void saveAs(!e.shiftKey);
@@ -476,7 +533,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openDialog, saveAs, undo, handlePrint, findOpen]);
+  }, [openDialog, newDocument, saveAs, undo, handlePrint, findOpen]);
 
   const effectiveScale = useMemo(() => {
     if (!docState || docState.dims.length === 0) return zoom.scale;
@@ -505,6 +562,8 @@ export default function App() {
         findOpen={findOpen}
         printing={printing}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onNew={() => void newDocument()}
+        onNewFromImages={() => void newFromImages()}
         onOpen={() => void openDialog()}
         onSaveAs={() => void saveAs(false)}
         onPrint={() => void handlePrint()}
@@ -541,6 +600,7 @@ export default function App() {
               onApply={(order) => void handleOrganizeApply(order)}
               onExtract={(order) => void handleExtract(order)}
               onInsert={(order, at) => void handleInsert(order, at)}
+              onAddBlank={(order, at) => void handleAddBlank(order, at)}
               onCancel={() => setOrganizing(false)}
             />
           ) : (
@@ -575,7 +635,13 @@ export default function App() {
             </>
           )
         ) : (
-          <Welcome recent={recent} onOpen={() => void openDialog()} onOpenRecent={(p) => void openPath(p)} />
+          <Welcome
+            recent={recent}
+            onOpen={() => void openDialog()}
+            onNew={() => void newDocument()}
+            onNewFromImages={() => void newFromImages()}
+            onOpenRecent={(p) => void openPath(p)}
+          />
         )}
       </div>
       {findOpen && docState && !organizing && (

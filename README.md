@@ -13,8 +13,10 @@ A fast, lightweight PDF reader & editor for Windows and macOS, built with [Tauri
 - Open via file association, drag & drop, `Open with…`, or the file dialog
 - Recent files
 
-**Editing**
+**Creating & editing**
+- Create a new blank PDF, or build a PDF from JPEG/PNG images
 - Highlight text, freehand drawing, add text (Japanese supported via bundled Noto Sans JP)
+- Add blank pages anywhere in a document
 - Organize pages: reorder (drag & drop), rotate, delete, extract to a new PDF, insert/merge another PDF
 - Undo, save / save-as
 - Annotations are flattened into the page content on save, so they render in every viewer
@@ -27,6 +29,7 @@ A fast, lightweight PDF reader & editor for Windows and macOS, built with [Tauri
 
 | Shortcut | Action |
 | --- | --- |
+| `Ctrl/Cmd+N` | New blank PDF |
 | `Ctrl/Cmd+O` | Open |
 | `Ctrl/Cmd+S` | Save |
 | `Ctrl/Cmd+F` | Find |

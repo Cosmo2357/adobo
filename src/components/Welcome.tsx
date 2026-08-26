@@ -9,10 +9,12 @@ export interface RecentEntry {
 interface WelcomeProps {
   recent: RecentEntry[];
   onOpen: () => void;
+  onNew: () => void;
+  onNewFromImages: () => void;
   onOpenRecent: (path: string) => void;
 }
 
-export function Welcome({ recent, onOpen, onOpenRecent }: WelcomeProps) {
+export function Welcome({ recent, onOpen, onNew, onNewFromImages, onOpenRecent }: WelcomeProps) {
   const [over, setOver] = useState(false);
 
   return (
@@ -36,9 +38,17 @@ export function Welcome({ recent, onOpen, onOpenRecent }: WelcomeProps) {
       </div>
       <div className={over ? "dropzone over" : "dropzone"}>
         <p>Drop a PDF here, or</p>
-        <button className="btn-primary" onClick={onOpen}>
-          Open PDF…
-        </button>
+        <div className="welcome-actions">
+          <button className="btn-primary" onClick={onOpen}>
+            Open PDF…
+          </button>
+          <button className="btn-secondary" onClick={onNew}>
+            New blank PDF
+          </button>
+          <button className="btn-secondary" onClick={onNewFromImages}>
+            PDF from images…
+          </button>
+        </div>
       </div>
       {recent.length > 0 && (
         <div className="recent">
