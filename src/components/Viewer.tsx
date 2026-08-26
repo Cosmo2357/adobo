@@ -43,7 +43,11 @@ interface ViewerProps {
   inkWidth: number;
   textSize: number;
   annots: Annot[];
+  selectedAnnotId: number | null;
   onAddAnnot: (annot: Annot) => void;
+  onSelectAnnot: (id: number | null) => void;
+  onMoveAnnot: (id: number, dx: number, dy: number) => void;
+  onUpdateTextAnnot: (id: number, text: string) => void;
   registerViewport: (index: number, viewport: PageViewport | null) => void;
   onCurrentPageChange: (page: number) => void;
   onZoomChange: (zoom: Zoom) => void;
@@ -55,7 +59,7 @@ const EMPTY: Match[] = [];
 const EMPTY_ANNOTS: Annot[] = [];
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
-  { doc, dims, zoom, rotation, matches, currentMatch, tool, toolColor, inkWidth, textSize, annots, onAddAnnot, registerViewport, onCurrentPageChange, onZoomChange },
+  { doc, dims, zoom, rotation, matches, currentMatch, tool, toolColor, inkWidth, textSize, annots, selectedAnnotId, onAddAnnot, onSelectAnnot, onMoveAnnot, onUpdateTextAnnot, registerViewport, onCurrentPageChange, onZoomChange },
   ref,
 ) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -258,7 +262,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
             inkWidth={inkWidth}
             textSize={textSize}
             annots={annotsByPage.get(i) ?? EMPTY_ANNOTS}
+            selectedAnnotId={selectedAnnotId}
             onAddAnnot={onAddAnnot}
+            onSelectAnnot={onSelectAnnot}
+            onMoveAnnot={onMoveAnnot}
+            onUpdateTextAnnot={onUpdateTextAnnot}
             registerWrap={registerWrap}
             registerViewport={registerViewport}
           />

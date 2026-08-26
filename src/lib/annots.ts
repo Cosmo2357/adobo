@@ -1,6 +1,8 @@
 /** Pending annotations, held in PDF user-space coordinates until baked. */
 
 export interface HighlightAnnot {
+  /** assigned by the app when the annotation is added */
+  id?: number;
   kind: "highlight";
   page: number;
   color: string;
@@ -9,6 +11,7 @@ export interface HighlightAnnot {
 }
 
 export interface InkAnnot {
+  id?: number;
   kind: "ink";
   page: number;
   color: string;
@@ -18,6 +21,7 @@ export interface InkAnnot {
 }
 
 export interface TextAnnot {
+  id?: number;
   kind: "text";
   page: number;
   color: string;

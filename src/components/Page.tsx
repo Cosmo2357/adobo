@@ -22,7 +22,11 @@ export interface PageProps {
   inkWidth: number;
   textSize: number;
   annots: Annot[];
+  selectedAnnotId: number | null;
   onAddAnnot: (annot: Annot) => void;
+  onSelectAnnot: (id: number | null) => void;
+  onMoveAnnot: (id: number, dx: number, dy: number) => void;
+  onUpdateTextAnnot: (id: number, text: string) => void;
   registerWrap: (index: number, el: HTMLDivElement | null) => void;
   registerViewport: (index: number, viewport: PageViewport | null) => void;
 }
@@ -68,70 +72,207 @@ function applyHighlights(
   }
 }
 
-/** Draws pending (unsaved) annotations for this page in CSS space. */
+/** Geometry helpers for one annotation in CSS space. */
+function annotCssBBox(
+  a: Annot,
+  toCss: (x: number, y: number) => number[],
+  scale: number,
+): [number, number, number, number] {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const push = (p: number[]) => {
+    xs.push(p[0]);
+    ys.push(p[1]);
+  };
+  if (a.kind === "highlight") {
+    for (const [x, y, w, h] of a.rects) {
+      push(toCss(x, y));
+      push(toCss(x + w, y + h));
+    }
+  } else if (a.kind === "ink") {
+    for (const [x, y] of a.points) push(toCss(x, y));
+    const pad = (a.width * scale) / 2 + 2;
+    return [
+      Math.min(...xs) - pad,
+      Math.min(...ys) - pad,
+      Math.max(...xs) - Math.min(...xs) + pad * 2,
+      Math.max(...ys) - Math.min(...ys) + pad * 2,
+    ];
+  } else {
+    const [cx, cy] = toCss(a.x, a.y);
+    const lines = a.text.split("\n");
+    const w = Math.max(...lines.map((l) => l.length)) * a.size * scale * 0.62 + 8;
+    const h = lines.length * a.size * scale * 1.3 + 6;
+    return [cx - 4, cy - 2, w, h];
+  }
+  return [
+    Math.min(...xs) - 2,
+    Math.min(...ys) - 2,
+    Math.max(...xs) - Math.min(...xs) + 4,
+    Math.max(...ys) - Math.min(...ys) + 4,
+  ];
+}
+
+/**
+ * Draws pending (unsaved) annotations for this page in CSS space. In select
+ * mode they can be clicked, dragged to move, and (for text) double-clicked
+ * to edit.
+ */
 function AnnotOverlay({
   annots,
   viewport,
   cssWidth,
   cssHeight,
+  interactive,
+  selectedId,
+  onSelect,
+  onMove,
+  onEditText,
 }: {
   annots: Annot[];
   viewport: PageViewport;
   cssWidth: number;
   cssHeight: number;
+  interactive: boolean;
+  selectedId: number | null;
+  onSelect: (id: number | null) => void;
+  onMove: (id: number, dx: number, dy: number) => void;
+  onEditText: (annot: Annot) => void;
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [drag, setDrag] = useState<{
+    id: number;
+    x0: number;
+    y0: number;
+    dx: number;
+    dy: number;
+  } | null>(null);
   const toCss = (x: number, y: number) => viewport.convertToViewportPoint(x, y);
+
+  const beginDrag = (e: React.PointerEvent, id: number) => {
+    if (!interactive || e.button !== 0) return;
+    e.stopPropagation();
+    onSelect(id);
+    const rect = svgRef.current!.getBoundingClientRect();
+    try {
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic events */
+    }
+    setDrag({ id, x0: e.clientX - rect.left, y0: e.clientY - rect.top, dx: 0, dy: 0 });
+  };
+  const moveDrag = (e: React.PointerEvent) => {
+    if (!drag) return;
+    const rect = svgRef.current!.getBoundingClientRect();
+    setDrag({
+      ...drag,
+      dx: e.clientX - rect.left - drag.x0,
+      dy: e.clientY - rect.top - drag.y0,
+    });
+  };
+  const endDrag = () => {
+    if (!drag) return;
+    if (Math.abs(drag.dx) > 1 || Math.abs(drag.dy) > 1) {
+      const [px0, py0] = viewport.convertToPdfPoint(drag.x0, drag.y0);
+      const [px1, py1] = viewport.convertToPdfPoint(drag.x0 + drag.dx, drag.y0 + drag.dy);
+      onMove(drag.id, px1 - px0, py1 - py0);
+    }
+    setDrag(null);
+  };
+
   return (
-    <svg className="annot-layer" width={cssWidth} height={cssHeight}>
-      {annots.map((a, i) => {
-        if (a.kind === "highlight") {
-          return a.rects.map(([x, y, w, h], j) => {
-            const [x1, y1] = toCss(x, y);
-            const [x2, y2] = toCss(x + w, y + h);
-            return (
-              <rect
-                key={`${i}-${j}`}
-                x={Math.min(x1, x2)}
-                y={Math.min(y1, y2)}
-                width={Math.abs(x2 - x1)}
-                height={Math.abs(y2 - y1)}
-                fill={a.color}
-                fillOpacity={0.45}
-                style={{ mixBlendMode: "multiply" }}
+    <svg
+      ref={svgRef}
+      className={interactive ? "annot-layer interactive" : "annot-layer"}
+      width={cssWidth}
+      height={cssHeight}
+    >
+      {annots.map((a) => {
+        const dragging = drag !== null && drag.id === a.id;
+        const shapeProps = {
+          transform: dragging ? `translate(${drag.dx},${drag.dy})` : undefined,
+          onPointerDown: (e: React.PointerEvent) => beginDrag(e, a.id!),
+          onPointerMove: moveDrag,
+          onPointerUp: endDrag,
+          onDoubleClick:
+            a.kind === "text" && interactive ? () => onEditText(a) : undefined,
+          style: {
+            pointerEvents: (interactive ? "auto" : "none") as "auto" | "none",
+            cursor: interactive ? "move" : undefined,
+          },
+        };
+        const selected = interactive && selectedId !== null && selectedId === a.id;
+        const bbox = selected ? annotCssBBox(a, toCss, viewport.scale) : null;
+        return (
+          <g key={a.id}>
+            {a.kind === "highlight" && (
+              <g {...shapeProps}>
+                {a.rects.map(([x, y, w, h], j) => {
+                  const [x1, y1] = toCss(x, y);
+                  const [x2, y2] = toCss(x + w, y + h);
+                  return (
+                    <rect
+                      key={j}
+                      x={Math.min(x1, x2)}
+                      y={Math.min(y1, y2)}
+                      width={Math.abs(x2 - x1)}
+                      height={Math.abs(y2 - y1)}
+                      fill={a.color}
+                      fillOpacity={0.45}
+                      style={{ mixBlendMode: "multiply" }}
+                    />
+                  );
+                })}
+              </g>
+            )}
+            {a.kind === "ink" && (
+              <polyline
+                {...shapeProps}
+                points={a.points.map(([x, y]) => toCss(x, y).join(",")).join(" ")}
+                fill="none"
+                stroke={a.color}
+                strokeWidth={a.width * viewport.scale}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
-            );
-          });
-        }
-        if (a.kind === "ink") {
-          const pts = a.points.map(([x, y]) => toCss(x, y).join(",")).join(" ");
-          return (
-            <polyline
-              key={i}
-              points={pts}
-              fill="none"
-              stroke={a.color}
-              strokeWidth={a.width * viewport.scale}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          );
-        }
-        if (a.kind === "text") {
-          const [cx, cy] = toCss(a.x, a.y);
-          return (
-            <text key={i} x={cx} y={cy + a.size * viewport.scale} fill={a.color}
-              fontSize={a.size * viewport.scale}
-              style={{ whiteSpace: "pre", fontFamily: "'Noto Sans JP', sans-serif" }}
-            >
-              {a.text.split("\n").map((line, j) => (
-                <tspan key={j} x={cx} dy={j === 0 ? 0 : a.size * viewport.scale * 1.3}>
-                  {line}
-                </tspan>
-              ))}
-            </text>
-          );
-        }
-        return null;
+            )}
+            {a.kind === "text" &&
+              (() => {
+                const [cx, cy] = toCss(a.x, a.y);
+                return (
+                  <text
+                    {...shapeProps}
+                    x={cx}
+                    y={cy + a.size * viewport.scale}
+                    fill={a.color}
+                    fontSize={a.size * viewport.scale}
+                    style={{
+                      ...shapeProps.style,
+                      whiteSpace: "pre",
+                      fontFamily: "'Noto Sans JP', sans-serif",
+                      userSelect: "none",
+                    }}
+                  >
+                    {a.text.split("\n").map((line, j) => (
+                      <tspan key={j} x={cx} dy={j === 0 ? 0 : a.size * viewport.scale * 1.3}>
+                        {line}
+                      </tspan>
+                    ))}
+                  </text>
+                );
+              })()}
+            {bbox && (
+              <rect
+                x={bbox[0]}
+                y={bbox[1]}
+                width={bbox[2]}
+                height={bbox[3]}
+                transform={dragging ? `translate(${drag.dx},${drag.dy})` : undefined}
+                className="annot-selection"
+              />
+            )}
+          </g>
+        );
       })}
     </svg>
   );
@@ -141,7 +282,8 @@ function PageInner(props: PageProps) {
   const {
     doc, index, cssWidth, cssHeight, scale, rotation, visible,
     matches, currentMatch, tool, toolColor, inkWidth, textSize,
-    annots, onAddAnnot, registerWrap, registerViewport,
+    annots, selectedAnnotId, onAddAnnot, onSelectAnnot, onMoveAnnot,
+    onUpdateTextAnnot, registerWrap, registerViewport,
   } = props;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -153,7 +295,12 @@ function PageInner(props: PageProps) {
   const draftInkRef = useRef<[number, number][] | null>(null);
   const [, setInkTick] = useState(0);
   const rafRef = useRef(0);
-  const [textEditor, setTextEditor] = useState<{ cssX: number; cssY: number } | null>(null);
+  const [textEditor, setTextEditor] = useState<{
+    cssX: number;
+    cssY: number;
+    initial?: string;
+    editId?: number;
+  } | null>(null);
 
   useEffect(() => {
     registerWrap(index, wrapRef.current);
@@ -297,17 +444,21 @@ function PageInner(props: PageProps) {
     setTextEditor({ cssX: e.clientX - rect.left, cssY: e.clientY - rect.top });
   };
   const commitText = (value: string) => {
-    if (textEditor && viewport && value.trim()) {
-      const [px, py] = viewport.convertToPdfPoint(textEditor.cssX, textEditor.cssY);
-      onAddAnnot({
-        kind: "text",
-        page: index,
-        color: toolColor,
-        size: textSize / viewport.scale,
-        x: px,
-        y: py,
-        text: value.replace(/\s+$/, ""),
-      });
+    if (textEditor && viewport) {
+      if (textEditor.editId !== undefined) {
+        onUpdateTextAnnot(textEditor.editId, value.replace(/\s+$/, ""));
+      } else if (value.trim()) {
+        const [px, py] = viewport.convertToPdfPoint(textEditor.cssX, textEditor.cssY);
+        onAddAnnot({
+          kind: "text",
+          page: index,
+          color: toolColor,
+          size: textSize / viewport.scale,
+          x: px,
+          y: py,
+          text: value.replace(/\s+$/, ""),
+        });
+      }
     }
     setTextEditor(null);
   };
@@ -337,6 +488,15 @@ function PageInner(props: PageProps) {
               viewport={viewport}
               cssWidth={cssWidth}
               cssHeight={cssHeight}
+              interactive={tool === "select"}
+              selectedId={selectedAnnotId}
+              onSelect={onSelectAnnot}
+              onMove={onMoveAnnot}
+              onEditText={(a) => {
+                if (a.kind !== "text" || !viewport) return;
+                const [cx, cy] = viewport.convertToViewportPoint(a.x, a.y);
+                setTextEditor({ cssX: cx, cssY: cy, initial: a.text, editId: a.id });
+              }}
             />
           )}
           <div
@@ -362,6 +522,7 @@ function PageInner(props: PageProps) {
             {textEditor && (
               <textarea
                 className="text-annot-editor"
+                defaultValue={textEditor.initial}
                 style={{
                   left: textEditor.cssX,
                   top: textEditor.cssY,

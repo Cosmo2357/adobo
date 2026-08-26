@@ -97,6 +97,8 @@ export default function App() {
   const [inkWidth, setInkWidth] = useState(3);
   const [textSize, setTextSize] = useState(16);
   const [annots, setAnnots] = useState<Annot[]>([]);
+  const [selectedAnnotId, setSelectedAnnotId] = useState<number | null>(null);
+  const nextAnnotId = useRef(1);
   const [bytesDirty, setBytesDirty] = useState(false);
   const byteHistory = useRef<{ bytes: Uint8Array; dirty: boolean }[]>([]);
 
@@ -118,6 +120,7 @@ export default function App() {
   const resetDocUi = () => {
     setCurrentPage(0);
     setAnnots([]);
+    setSelectedAnnotId(null);
     setBytesDirty(false);
     byteHistory.current = [];
     setMatches([]);
@@ -350,11 +353,69 @@ export default function App() {
           rects: pdfRects,
         });
       });
-      if (newAnnots.length > 0) setAnnots((prev) => [...prev, ...newAnnots]);
+      if (newAnnots.length > 0) {
+        setAnnots((prev) => [
+          ...prev,
+          ...newAnnots.map((a) => ({ ...a, id: nextAnnotId.current++ })),
+        ]);
+      }
     };
     document.addEventListener("pointerup", onUp);
     return () => document.removeEventListener("pointerup", onUp);
   }, [tool, colors.highlight]);
+
+  // ---------- annotation ops ----------
+  const addAnnot = useCallback((annot: Annot) => {
+    const id = nextAnnotId.current++;
+    setAnnots((prev) => [...prev, { ...annot, id }]);
+  }, []);
+
+  const moveAnnot = useCallback((id: number, dx: number, dy: number) => {
+    setAnnots((prev) =>
+      prev.map((a) => {
+        if (a.id !== id) return a;
+        if (a.kind === "highlight") {
+          return {
+            ...a,
+            rects: a.rects.map(
+              ([x, y, w, h]) => [x + dx, y + dy, w, h] as [number, number, number, number],
+            ),
+          };
+        }
+        if (a.kind === "ink") {
+          return {
+            ...a,
+            points: a.points.map(([x, y]) => [x + dx, y + dy] as [number, number]),
+          };
+        }
+        return { ...a, x: a.x + dx, y: a.y + dy };
+      }),
+    );
+  }, []);
+
+  const updateTextAnnot = useCallback((id: number, text: string) => {
+    setAnnots((prev) =>
+      text.trim()
+        ? prev.map((a) => (a.id === id && a.kind === "text" ? { ...a, text } : a))
+        : prev.filter((a) => a.id !== id),
+    );
+  }, []);
+
+  const removeAnnot = useCallback((id: number) => {
+    setAnnots((prev) => prev.filter((a) => a.id !== id));
+    setSelectedAnnotId(null);
+  }, []);
+
+  const recolorAnnot = useCallback((id: number, color: string) => {
+    setAnnots((prev) => prev.map((a) => (a.id === id ? { ...a, color } : a)));
+  }, []);
+
+  // Drop the selection if the selected annotation disappears (undo, save…).
+  useEffect(() => {
+    if (selectedAnnotId !== null && !annots.some((a) => a.id === selectedAnnotId)) {
+      setSelectedAnnotId(null);
+    }
+  }, [annots, selectedAnnotId]);
 
   // ---------- save / edit ----------
   const bakedBytes = useCallback(async () => {
@@ -526,14 +587,20 @@ export default function App() {
       } else if (mod && e.key === "0") {
         e.preventDefault();
         setZoom({ mode: "fit-width", scale: 1 });
+      } else if ((e.key === "Delete" || e.key === "Backspace") && !typing) {
+        if (selectedAnnotId !== null) {
+          e.preventDefault();
+          removeAnnot(selectedAnnotId);
+        }
       } else if (e.key === "Escape" && !typing) {
         if (findOpen) setFindOpen(false);
+        else if (selectedAnnotId !== null) setSelectedAnnotId(null);
         else setTool("select");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openDialog, newDocument, saveAs, undo, handlePrint, findOpen]);
+  }, [openDialog, newDocument, saveAs, undo, handlePrint, findOpen, selectedAnnotId, removeAnnot]);
 
   const effectiveScale = useMemo(() => {
     if (!docState || docState.dims.length === 0) return zoom.scale;
@@ -582,8 +649,16 @@ export default function App() {
           canUndo={annots.length > 0 || byteHistory.current.length > 0}
           dirty={dirty}
           organizing={organizing}
+          hasAnnots={annots.length > 0}
+          selectedAnnot={annots.find((x) => x.id === selectedAnnotId) ?? null}
           onToolChange={setTool}
           onColorChange={(t, c) => setColors((prev) => ({ ...prev, [t]: c }))}
+          onRecolorSelected={(c) => {
+            if (selectedAnnotId !== null) recolorAnnot(selectedAnnotId, c);
+          }}
+          onDeleteSelected={() => {
+            if (selectedAnnotId !== null) removeAnnot(selectedAnnotId);
+          }}
           onInkWidthChange={setInkWidth}
           onTextSizeChange={setTextSize}
           onUndo={undo}
@@ -627,7 +702,11 @@ export default function App() {
                 inkWidth={inkWidth}
                 textSize={textSize}
                 annots={annots}
-                onAddAnnot={(a) => setAnnots((prev) => [...prev, a])}
+                selectedAnnotId={selectedAnnotId}
+                onAddAnnot={addAnnot}
+                onSelectAnnot={setSelectedAnnotId}
+                onMoveAnnot={moveAnnot}
+                onUpdateTextAnnot={updateTextAnnot}
                 registerViewport={registerViewport}
                 onCurrentPageChange={setCurrentPage}
                 onZoomChange={setZoom}

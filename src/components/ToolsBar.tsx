@@ -1,4 +1,4 @@
-import type { Tool } from "../lib/annots";
+import type { Annot, Tool } from "../lib/annots";
 import { TOOL_COLORS } from "../lib/annots";
 
 interface ToolsBarProps {
@@ -9,8 +9,12 @@ interface ToolsBarProps {
   canUndo: boolean;
   dirty: boolean;
   organizing: boolean;
+  hasAnnots: boolean;
+  selectedAnnot: Annot | null;
   onToolChange: (tool: Tool) => void;
   onColorChange: (tool: Exclude<Tool, "select">, color: string) => void;
+  onRecolorSelected: (color: string) => void;
+  onDeleteSelected: () => void;
   onInkWidthChange: (w: number) => void;
   onTextSizeChange: (s: number) => void;
   onUndo: () => void;
@@ -53,7 +57,36 @@ export function ToolsBar(p: ToolsBarProps) {
               title={c}
             />
           ))}
+          <input
+            type="color"
+            className="color-custom"
+            title="Custom color"
+            value={p.colors[activeColorTool]}
+            onChange={(e) => p.onColorChange(activeColorTool, e.target.value)}
+          />
         </>
+      )}
+
+      {p.tool === "select" && p.selectedAnnot && (
+        <>
+          <div className="divider" />
+          <span className="tool-hint">Selected:</span>
+          <input
+            type="color"
+            className="color-custom"
+            title="Change color"
+            value={p.selectedAnnot.color}
+            onChange={(e) => p.onRecolorSelected(e.target.value)}
+          />
+          <button className="tool-btn" onClick={p.onDeleteSelected}>
+            Delete
+          </button>
+        </>
+      )}
+      {p.tool === "select" && !p.selectedAnnot && p.hasAnnots && (
+        <span className="tool-hint">
+          Click an annotation to select · drag to move · double-click text to edit
+        </span>
       )}
 
       {p.tool === "ink" && (
