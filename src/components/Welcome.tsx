@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logo from "../assets/lumpia-logo.png";
 
 export interface RecentEntry {
   path: string;
@@ -33,7 +34,7 @@ export function Welcome({ recent, onOpen, onNew, onNewFromImages, onOpenRecent }
       }}
     >
       <div className="logo">
-        <div className="mark">Lu</div>
+        <img className="mark-img" src={logo} alt="" />
         Lumpia
       </div>
       <div className={over ? "dropzone over" : "dropzone"}>

@@ -1,3 +1,10 @@
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("/fonts/NotoSansJP-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --bar: #323639;
   --bar-border: #232629;
@@ -323,6 +330,12 @@ body {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+.welcome .logo .mark-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
 .welcome .logo .mark {
   width: 44px;
   height: 44px;
@@ -526,17 +539,27 @@ body {
 
 .text-annot-editor {
   position: absolute;
-  min-width: 160px;
-  min-height: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1.5px dashed var(--accent);
-  border-radius: 3px;
+  min-width: 60px;
+  min-height: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px dashed var(--accent);
+  border-radius: 2px;
   outline: none;
-  padding: 4px 6px;
-  font-family: inherit;
-  line-height: 1.3;
-  resize: both;
-  z-index: 5;
+  padding: 0;
+  margin: 0;
+  font-family: "Noto Sans JP", sans-serif;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  resize: both; /* drag the bottom-right corner to change the box */
+  z-index: 6;
+}
+
+.annot-resize-handle {
+  fill: #fff;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  cursor: nwse-resize;
 }
 
 /* ---------- Organize view ---------- */

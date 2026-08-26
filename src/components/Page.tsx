@@ -3,6 +3,7 @@ import { TextLayer, type PDFDocumentProxy } from "../lib/pdf";
 import type { PageViewport } from "pdfjs-dist/types/src/display/display_utils";
 import type { Match } from "../lib/search";
 import type { Annot, Tool } from "../lib/annots";
+import { measureText, wrapLines } from "../lib/textwrap";
 
 export interface PageProps {
   doc: PDFDocumentProxy;
@@ -26,7 +27,8 @@ export interface PageProps {
   onAddAnnot: (annot: Annot) => void;
   onSelectAnnot: (id: number | null) => void;
   onMoveAnnot: (id: number, dx: number, dy: number) => void;
-  onUpdateTextAnnot: (id: number, text: string) => void;
+  onUpdateTextAnnot: (id: number, text: string, width: number) => void;
+  onResizeWidthAnnot: (id: number, widthPdf: number) => void;
   registerWrap: (index: number, el: HTMLDivElement | null) => void;
   registerViewport: (index: number, viewport: PageViewport | null) => void;
 }
@@ -100,9 +102,14 @@ function annotCssBBox(
     ];
   } else {
     const [cx, cy] = toCss(a.x, a.y);
-    const lines = a.text.split("\n");
-    const w = Math.max(...lines.map((l) => l.length)) * a.size * scale * 0.62 + 8;
-    const h = lines.length * a.size * scale * 1.3 + 6;
+    const fontPx = a.size * scale;
+    const lines = a.width
+      ? wrapLines(a.text, a.width * scale, fontPx)
+      : a.text.split("\n");
+    const w = a.width
+      ? a.width * scale + 8
+      : Math.max(...lines.map((l) => measureText(l, fontPx))) + 8;
+    const h = lines.length * fontPx * 1.3 + 6;
     return [cx - 4, cy - 2, w, h];
   }
   return [
@@ -128,6 +135,7 @@ function AnnotOverlay({
   selectedId,
   onSelect,
   onMove,
+  onResizeWidth,
   onEditText,
 }: {
   annots: Annot[];
@@ -139,6 +147,7 @@ function AnnotOverlay({
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   onMove: (id: number, dx: number, dy: number) => void;
+  onResizeWidth: (id: number, widthPdf: number) => void;
   onEditText: (annot: Annot) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -148,6 +157,12 @@ function AnnotOverlay({
     y0: number;
     dx: number;
     dy: number;
+  } | null>(null);
+  const [widthDrag, setWidthDrag] = useState<{
+    id: number;
+    baseWidthCss: number;
+    x0: number;
+    dx: number;
   } | null>(null);
   const toCss = (x: number, y: number) => viewport.convertToViewportPoint(x, y);
 
@@ -242,13 +257,16 @@ function AnnotOverlay({
             {a.kind === "text" &&
               (() => {
                 const [cx, cy] = toCss(a.x, a.y);
+                const fontPx = a.size * viewport.scale;
+                const lines = a.width
+                  ? wrapLines(a.text, a.width * viewport.scale, fontPx)
+                  : a.text.split("\n");
+                const baseY = cy + a.size * 1.15 * viewport.scale;
                 return (
                   <text
                     {...shapeProps}
-                    x={cx}
-                    y={cy + a.size * viewport.scale}
                     fill={a.color}
-                    fontSize={a.size * viewport.scale}
+                    fontSize={fontPx}
                     style={{
                       ...shapeProps.style,
                       whiteSpace: "pre",
@@ -256,23 +274,61 @@ function AnnotOverlay({
                       userSelect: "none",
                     }}
                   >
-                    {a.text.split("\n").map((line, j) => (
-                      <tspan key={j} x={cx} dy={j === 0 ? 0 : a.size * viewport.scale * 1.3}>
-                        {line}
-                      </tspan>
-                    ))}
+                    {lines.map((line, j) =>
+                      line === "" ? null : (
+                        // absolute y per line so blank lines keep their space
+                        <tspan key={j} x={cx} y={baseY + j * fontPx * 1.3}>
+                          {line}
+                        </tspan>
+                      ),
+                    )}
                   </text>
                 );
               })()}
             {bbox && (
-              <rect
-                x={bbox[0]}
-                y={bbox[1]}
-                width={bbox[2]}
-                height={bbox[3]}
-                transform={dragging ? `translate(${drag.dx},${drag.dy})` : undefined}
-                className="annot-selection"
-              />
+              <g transform={dragging ? `translate(${drag.dx},${drag.dy})` : undefined}>
+                <rect
+                  x={bbox[0]}
+                  y={bbox[1]}
+                  width={bbox[2] + (widthDrag !== null && widthDrag.id === a.id ? widthDrag.dx : 0)}
+                  height={bbox[3]}
+                  className="annot-selection"
+                />
+                {a.kind === "text" && (
+                  <rect
+                    className="annot-resize-handle"
+                    x={bbox[0] + bbox[2] + (widthDrag !== null && widthDrag.id === a.id ? widthDrag.dx : 0) - 5}
+                    y={bbox[1] + bbox[3] - 5}
+                    width={10}
+                    height={10}
+                    style={{ pointerEvents: "auto" }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      try {
+                        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+                      } catch { /* synthetic */ }
+                      setWidthDrag({
+                        id: a.id!,
+                        baseWidthCss: bbox[2] - 8,
+                        x0: e.clientX - rect.left,
+                        dx: 0,
+                      });
+                    }}
+                    onPointerMove={(e) => {
+                      if (!widthDrag) return;
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      setWidthDrag({ ...widthDrag, dx: e.clientX - rect.left - widthDrag.x0 });
+                    }}
+                    onPointerUp={() => {
+                      if (!widthDrag) return;
+                      const newWidthCss = Math.max(30, widthDrag.baseWidthCss + widthDrag.dx);
+                      onResizeWidth(widthDrag.id, newWidthCss / viewport.scale);
+                      setWidthDrag(null);
+                    }}
+                  />
+                )}
+              </g>
             )}
           </g>
         );
@@ -281,12 +337,18 @@ function AnnotOverlay({
   );
 }
 
+/** Grows the textarea vertically to fit its content; width is the user's. */
+function autoGrow(el: HTMLTextAreaElement) {
+  el.style.height = "0";
+  el.style.height = `${Math.max(el.scrollHeight + 4, 24)}px`;
+}
+
 function PageInner(props: PageProps) {
   const {
     doc, index, cssWidth, cssHeight, scale, rotation, visible,
     matches, currentMatch, tool, toolColor, inkWidth, textSize,
     annots, selectedAnnotId, onAddAnnot, onSelectAnnot, onMoveAnnot,
-    onUpdateTextAnnot, registerWrap, registerViewport,
+    onUpdateTextAnnot, onResizeWidthAnnot, registerWrap, registerViewport,
   } = props;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -301,6 +363,10 @@ function PageInner(props: PageProps) {
   interface TextEditorState {
     cssX: number;
     cssY: number;
+    /** on-screen font size in CSS px for this editing session */
+    fontPx: number;
+    /** box width in CSS px; the textarea's native handle can change it */
+    widthCss: number;
     initial?: string;
     editId?: number;
   }
@@ -450,24 +516,31 @@ function PageInner(props: PageProps) {
   const onOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (tool !== "text" || !viewport || textEditor) return;
     const rect = overlayRef.current!.getBoundingClientRect();
-    setTextEditor({ cssX: e.clientX - rect.left, cssY: e.clientY - rect.top });
+    setTextEditor({
+      cssX: e.clientX - rect.left,
+      cssY: e.clientY - rect.top,
+      fontPx: textSize,
+      widthCss: (viewport ? 220 * viewport.scale : 300),
+    });
   };
-  const commitText = (value: string) => {
+  const commitText = (value: string, boxWidthCss?: number) => {
     const ed = textEditorRef.current;
     if (!ed) return; // already committed (Ctrl+Enter fires before the unmount blur)
     setTextEditor(null);
     if (!viewport) return;
+    const widthPdf = Math.max(24, ((boxWidthCss ?? ed.widthCss) - 4) / viewport.scale);
     if (ed.editId !== undefined) {
-      onUpdateTextAnnot(ed.editId, value.replace(/\s+$/, ""));
+      onUpdateTextAnnot(ed.editId, value.replace(/\s+$/, ""), widthPdf);
     } else if (value.trim()) {
       const [px, py] = viewport.convertToPdfPoint(ed.cssX, ed.cssY);
       onAddAnnot({
         kind: "text",
         page: index,
         color: toolColor,
-        size: textSize / viewport.scale,
+        size: ed.fontPx / viewport.scale,
         x: px,
         y: py,
+        width: widthPdf,
         text: value.replace(/\s+$/, ""),
       });
     }
@@ -503,10 +576,20 @@ function PageInner(props: PageProps) {
               selectedId={selectedAnnotId}
               onSelect={onSelectAnnot}
               onMove={onMoveAnnot}
+              onResizeWidth={onResizeWidthAnnot}
               onEditText={(a) => {
                 if (a.kind !== "text" || !viewport) return;
                 const [cx, cy] = viewport.convertToViewportPoint(a.x, a.y);
-                setTextEditor({ cssX: cx, cssY: cy, initial: a.text, editId: a.id });
+                setTextEditor({
+                  cssX: cx,
+                  cssY: cy,
+                  fontPx: a.size * viewport.scale,
+                  widthCss: a.width
+                    ? a.width * viewport.scale
+                    : annotCssBBox(a, (x, y) => viewport.convertToViewportPoint(x, y), viewport.scale)[2],
+                  initial: a.text,
+                  editId: a.id,
+                });
               }}
             />
           )}
@@ -534,19 +617,34 @@ function PageInner(props: PageProps) {
               <textarea
                 className="text-annot-editor"
                 defaultValue={textEditor.initial}
+                wrap="soft"
+                rows={1}
                 style={{
-                  left: textEditor.cssX,
-                  top: textEditor.cssY,
-                  fontSize: textSize,
-                  color: toolColor,
+                  // 2px border compensation so the inner text aligns with the
+                  // final SVG/PDF anchor point
+                  left: textEditor.cssX - 2,
+                  top: textEditor.cssY - 2,
+                  width: textEditor.widthCss + 4,
+                  fontSize: textEditor.fontPx,
+                  lineHeight: 1.3,
+                  color: textEditor.editId !== undefined
+                    ? annots.find((a) => a.id === textEditor.editId)?.color ?? toolColor
+                    : toolColor,
+                }}
+                ref={(el) => {
+                  if (el) autoGrow(el);
                 }}
                 autoFocus
                 placeholder="Type text"
-                onBlur={(e) => commitText(e.target.value)}
+                onInput={(e) => autoGrow(e.currentTarget)}
+                onMouseUp={(e) => autoGrow(e.currentTarget)}
+                onBlur={(e) => commitText(e.target.value, e.target.offsetWidth)}
                 onKeyDown={(e) => {
+                  e.stopPropagation();
                   if (e.key === "Escape") setTextEditor(null);
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    commitText((e.target as HTMLTextAreaElement).value);
+                    const el = e.target as HTMLTextAreaElement;
+                    commitText(el.value, el.offsetWidth);
                   }
                 }}
               />

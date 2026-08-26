@@ -47,7 +47,8 @@ interface ViewerProps {
   onAddAnnot: (annot: Annot) => void;
   onSelectAnnot: (id: number | null) => void;
   onMoveAnnot: (id: number, dx: number, dy: number) => void;
-  onUpdateTextAnnot: (id: number, text: string) => void;
+  onUpdateTextAnnot: (id: number, text: string, width?: number) => void;
+  onResizeWidthAnnot: (id: number, widthPdf: number) => void;
   registerViewport: (index: number, viewport: PageViewport | null) => void;
   onCurrentPageChange: (page: number) => void;
   onZoomChange: (zoom: Zoom) => void;
@@ -59,7 +60,7 @@ const EMPTY: Match[] = [];
 const EMPTY_ANNOTS: Annot[] = [];
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
-  { doc, dims, zoom, rotation, matches, currentMatch, tool, toolColor, inkWidth, textSize, annots, selectedAnnotId, onAddAnnot, onSelectAnnot, onMoveAnnot, onUpdateTextAnnot, registerViewport, onCurrentPageChange, onZoomChange },
+  { doc, dims, zoom, rotation, matches, currentMatch, tool, toolColor, inkWidth, textSize, annots, selectedAnnotId, onAddAnnot, onSelectAnnot, onMoveAnnot, onUpdateTextAnnot, onResizeWidthAnnot, registerViewport, onCurrentPageChange, onZoomChange },
   ref,
 ) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -267,6 +268,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
             onSelectAnnot={onSelectAnnot}
             onMoveAnnot={onMoveAnnot}
             onUpdateTextAnnot={onUpdateTextAnnot}
+            onResizeWidthAnnot={onResizeWidthAnnot}
             registerWrap={registerWrap}
             registerViewport={registerViewport}
           />

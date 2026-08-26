@@ -1,6 +1,7 @@
 import { BlendMode, LineCapStyle, PDFDocument, rgb, degrees } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { Annot } from "./annots";
+import { wrapLines } from "./textwrap";
 
 function hexToRgb(hex: string) {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -56,11 +57,13 @@ export async function bakeAnnotations(bytes: Uint8Array, annots: Annot[]): Promi
         });
       }
     } else if (a.kind === "text" && font) {
-      const lines = a.text.split("\n");
+      const lines = a.width
+        ? wrapLines(a.text, a.width, a.size)
+        : a.text.split("\n");
       lines.forEach((line, i) => {
         page.drawText(line, {
           x: a.x,
-          y: a.y - a.size - i * a.size * 1.3,
+          y: a.y - a.size * 1.15 - i * a.size * 1.3,
           size: a.size,
           font,
           color: hexToRgb(a.color),

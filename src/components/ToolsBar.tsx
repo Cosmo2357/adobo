@@ -14,6 +14,7 @@ interface ToolsBarProps {
   onToolChange: (tool: Tool) => void;
   onColorChange: (tool: Exclude<Tool, "select">, color: string) => void;
   onRecolorSelected: (color: string) => void;
+  onResizeSelected: (size: number) => void;
   onDeleteSelected: () => void;
   onInkWidthChange: (w: number) => void;
   onTextSizeChange: (s: number) => void;
@@ -78,6 +79,20 @@ export function ToolsBar(p: ToolsBarProps) {
             value={p.selectedAnnot.color}
             onChange={(e) => p.onRecolorSelected(e.target.value)}
           />
+          {p.selectedAnnot.kind === "text" && (
+            <select
+              className="zoom-select"
+              title="Text size"
+              value={Math.round(p.selectedAnnot.size)}
+              onChange={(e) => p.onResizeSelected(Number(e.target.value))}
+            >
+              {[...new Set([Math.round(p.selectedAnnot.size), 10, 12, 14, 16, 20, 24, 32, 48])]
+                .sort((a, b) => a - b)
+                .map((s) => (
+                  <option key={s} value={s}>{s}px</option>
+                ))}
+            </select>
+          )}
           <button className="tool-btn" onClick={p.onDeleteSelected}>
             Delete
           </button>

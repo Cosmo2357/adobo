@@ -1,6 +1,6 @@
 [package]
 name = "lumpia"
-version = "0.4.0"
+version = "0.4.1"
 description = "Lumpia — a fast PDF reader"
 authors = ["yuhki"]
 edition = "2021"

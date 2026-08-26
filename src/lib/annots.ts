@@ -27,9 +27,11 @@ export interface TextAnnot {
   color: string;
   /** font size in PDF units */
   size: number;
-  /** left / baseline-top anchor in PDF space */
+  /** left / top anchor in PDF space */
   x: number;
   y: number;
+  /** box width in PDF units; text wraps to it. Absent = single lines. */
+  width?: number;
   text: string;
 }
 

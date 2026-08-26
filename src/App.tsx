@@ -393,10 +393,14 @@ export default function App() {
     );
   }, []);
 
-  const updateTextAnnot = useCallback((id: number, text: string) => {
+  const updateTextAnnot = useCallback((id: number, text: string, width?: number) => {
     setAnnots((prev) =>
       text.trim()
-        ? prev.map((a) => (a.id === id && a.kind === "text" ? { ...a, text } : a))
+        ? prev.map((a) =>
+            a.id === id && a.kind === "text"
+              ? { ...a, text, ...(width !== undefined ? { width } : {}) }
+              : a,
+          )
         : prev.filter((a) => a.id !== id),
     );
   }, []);
@@ -408,6 +412,18 @@ export default function App() {
 
   const recolorAnnot = useCallback((id: number, color: string) => {
     setAnnots((prev) => prev.map((a) => (a.id === id ? { ...a, color } : a)));
+  }, []);
+
+  const resizeTextWidth = useCallback((id: number, width: number) => {
+    setAnnots((prev) =>
+      prev.map((a) => (a.id === id && a.kind === "text" ? { ...a, width } : a)),
+    );
+  }, []);
+
+  const resizeTextAnnot = useCallback((id: number, size: number) => {
+    setAnnots((prev) =>
+      prev.map((a) => (a.id === id && a.kind === "text" ? { ...a, size } : a)),
+    );
   }, []);
 
   // Drop the selection if the selected annotation disappears (undo, save…).
@@ -656,6 +672,9 @@ export default function App() {
           onRecolorSelected={(c) => {
             if (selectedAnnotId !== null) recolorAnnot(selectedAnnotId, c);
           }}
+          onResizeSelected={(s) => {
+            if (selectedAnnotId !== null) resizeTextAnnot(selectedAnnotId, s);
+          }}
           onDeleteSelected={() => {
             if (selectedAnnotId !== null) removeAnnot(selectedAnnotId);
           }}
@@ -707,6 +726,7 @@ export default function App() {
                 onSelectAnnot={setSelectedAnnotId}
                 onMoveAnnot={moveAnnot}
                 onUpdateTextAnnot={updateTextAnnot}
+                onResizeWidthAnnot={resizeTextWidth}
                 registerViewport={registerViewport}
                 onCurrentPageChange={setCurrentPage}
                 onZoomChange={setZoom}

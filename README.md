@@ -15,8 +15,9 @@ A fast, lightweight PDF reader & editor for Windows and macOS, built with [Tauri
 
 **Creating & editing**
 - Create a new blank PDF, or build a PDF from JPEG/PNG images
-- Highlight text, freehand drawing, add text (Japanese supported via bundled Noto Sans JP)
-- Move, recolor, re-edit (double-click) and delete annotations before saving; preset swatches plus a full color picker
+- Highlight text, freehand drawing, add text boxes (Japanese supported via bundled Noto Sans JP)
+- Text boxes wrap to their width; drag the box corner while editing, or the selection handle afterwards, to resize
+- Move, recolor, re-edit (double-click), resize and delete annotations before saving; preset swatches plus a full color picker
 - Add blank pages anywhere in a document
 - Organize pages: reorder (drag & drop), rotate, delete, extract to a new PDF, insert/merge another PDF
 - Undo, save / save-as
