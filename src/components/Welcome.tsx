@@ -33,8 +33,8 @@ export function Welcome({ recent, onOpen, onNew, onNewFromImages, onOpenRecent }
       }}
     >
       <div className="logo">
-        <div className="mark">Ad</div>
-        Adobo
+        <div className="mark">Lu</div>
+        Lumpia
       </div>
       <div className={over ? "dropzone over" : "dropzone"}>
         <p>Drop a PDF here, or</p>

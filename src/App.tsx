@@ -37,7 +37,7 @@ import { FindBar } from "./components/FindBar";
 import { Organize } from "./components/Organize";
 import { Welcome, type RecentEntry } from "./components/Welcome";
 
-const RECENT_KEY = "adobo.recent";
+const RECENT_KEY = "lumpia.recent";
 
 function loadRecent(): RecentEntry[] {
   try {
@@ -148,7 +148,7 @@ export default function App() {
       setDocState({ path, name, bytes, doc, dims });
       if (!opts?.keepUi) resetDocUi();
       setError(null);
-      setWindowTitle(`${name} - Adobo`);
+      setWindowTitle(`${name} - Lumpia`);
       return doc;
     },
     [],

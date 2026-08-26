@@ -1,4 +1,4 @@
-# Adobo
+# Lumpia
 
 A fast, lightweight PDF reader & editor for Windows and macOS, built with [Tauri](https://tauri.app) + React + [pdf.js](https://mozilla.github.io/pdf.js/) + [pdf-lib](https://pdf-lib.js.org/). Named after the Filipino dish.
 
@@ -68,7 +68,7 @@ Required repository secrets:
 
 ## 日本語クイックスタート
 
-- **インストール (Windows)**: [Releases](../../releases) から `Adobo_x.y.z_x64-setup.exe` をダウンロードして実行。SmartScreen の警告が出た場合は「詳細情報」→「実行」。
+- **インストール (Windows)**: [Releases](../../releases) から `Lumpia_x.y.z_x64-setup.exe` をダウンロードして実行。SmartScreen の警告が出た場合は「詳細情報」→「実行」。
 - 起動後、PDF をウィンドウにドラッグ＆ドロップするか `Ctrl+O` で開けます。
 - 注釈（ハイライト・手書き・テキスト追加）は保存時にページへ焼き込まれます。
 - 新しいバージョンが公開されると起動時に自動でアップデート通知が出ます。

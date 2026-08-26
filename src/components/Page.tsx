@@ -124,6 +124,7 @@ function AnnotOverlay({
   cssWidth,
   cssHeight,
   interactive,
+  editingId,
   selectedId,
   onSelect,
   onMove,
@@ -134,6 +135,7 @@ function AnnotOverlay({
   cssWidth: number;
   cssHeight: number;
   interactive: boolean;
+  editingId: number | null;
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   onMove: (id: number, dx: number, dy: number) => void;
@@ -188,6 +190,7 @@ function AnnotOverlay({
       height={cssHeight}
     >
       {annots.map((a) => {
+        if (editingId !== null && a.id === editingId) return null;
         const dragging = drag !== null && drag.id === a.id;
         const shapeProps = {
           transform: dragging ? `translate(${drag.dx},${drag.dy})` : undefined,
@@ -295,12 +298,18 @@ function PageInner(props: PageProps) {
   const draftInkRef = useRef<[number, number][] | null>(null);
   const [, setInkTick] = useState(0);
   const rafRef = useRef(0);
-  const [textEditor, setTextEditor] = useState<{
+  interface TextEditorState {
     cssX: number;
     cssY: number;
     initial?: string;
     editId?: number;
-  } | null>(null);
+  }
+  const [textEditor, setTextEditorState] = useState<TextEditorState | null>(null);
+  const textEditorRef = useRef<TextEditorState | null>(null);
+  const setTextEditor = (v: TextEditorState | null) => {
+    textEditorRef.current = v;
+    setTextEditorState(v);
+  };
 
   useEffect(() => {
     registerWrap(index, wrapRef.current);
@@ -444,23 +453,24 @@ function PageInner(props: PageProps) {
     setTextEditor({ cssX: e.clientX - rect.left, cssY: e.clientY - rect.top });
   };
   const commitText = (value: string) => {
-    if (textEditor && viewport) {
-      if (textEditor.editId !== undefined) {
-        onUpdateTextAnnot(textEditor.editId, value.replace(/\s+$/, ""));
-      } else if (value.trim()) {
-        const [px, py] = viewport.convertToPdfPoint(textEditor.cssX, textEditor.cssY);
-        onAddAnnot({
-          kind: "text",
-          page: index,
-          color: toolColor,
-          size: textSize / viewport.scale,
-          x: px,
-          y: py,
-          text: value.replace(/\s+$/, ""),
-        });
-      }
-    }
+    const ed = textEditorRef.current;
+    if (!ed) return; // already committed (Ctrl+Enter fires before the unmount blur)
     setTextEditor(null);
+    if (!viewport) return;
+    if (ed.editId !== undefined) {
+      onUpdateTextAnnot(ed.editId, value.replace(/\s+$/, ""));
+    } else if (value.trim()) {
+      const [px, py] = viewport.convertToPdfPoint(ed.cssX, ed.cssY);
+      onAddAnnot({
+        kind: "text",
+        page: index,
+        color: toolColor,
+        size: textSize / viewport.scale,
+        x: px,
+        y: py,
+        text: value.replace(/\s+$/, ""),
+      });
+    }
   };
 
   const overlayInteractive = tool === "ink" || tool === "text";
@@ -489,6 +499,7 @@ function PageInner(props: PageProps) {
               cssWidth={cssWidth}
               cssHeight={cssHeight}
               interactive={tool === "select"}
+              editingId={textEditor?.editId ?? null}
               selectedId={selectedAnnotId}
               onSelect={onSelectAnnot}
               onMove={onMoveAnnot}

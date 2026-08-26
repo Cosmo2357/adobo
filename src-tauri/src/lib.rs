@@ -111,7 +111,7 @@ fn deliver(app: &tauri::AppHandle, paths: Vec<String>) {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
-    let _ = app.emit("adobo://files-pending", ());
+    let _ = app.emit("lumpia://files-pending", ());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

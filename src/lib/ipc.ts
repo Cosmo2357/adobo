@@ -59,7 +59,7 @@ export const askDialog = ask;
 /** Subscribes to files queued by the backend; returns an unsubscribe. */
 export function onFilesPending(handler: () => void): () => void {
   if (!isTauri) return () => {};
-  const un = listen("adobo://files-pending", handler);
+  const un = listen("lumpia://files-pending", handler);
   return () => {
     un.then((f) => f());
   };
